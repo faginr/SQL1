@@ -13,7 +13,7 @@ app.config['SECRET_KEY'] = 'NalaBear26!'
 @app.route('/')
 def index():
     conn = get_db_connection()
-    todos = conn.execute('SELECT i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id ORDER BY l.title;').fetchall()
+    todos = conn.execute('SELECT i.id, i.done, i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id ORDER BY l.title;').fetchall()
     # Get content of item and title of the list it belongs to
     # by joining both items and lists tables. Match list_id from items
     # table to id in lists table
@@ -38,6 +38,14 @@ def create():
         content = request.form['content']
         list_title = request.form['list']
 
+        new_list = request.form['new_list']
+        # If a new list title is submitted, add to database
+        if list_title == 'New List' and new_list:
+            conn.execute('INSERT INTO lists (title) VALUES (?)', (new_list,))
+            conn.commit()
+            # Update list_title to refer to the newly added list
+            list_title = new_list
+
         if not content:
             flash('Content is required')
             return redirect(url_for('index'))
@@ -53,3 +61,57 @@ def create():
 
     conn.close()
     return render_template('create.html', lists=lists)
+
+@app.route('/<int:id>/do/', methods=('POST',))
+def do(id):
+    conn = get_db_connection()
+    conn.execute('UPDATE items SET done = 1 WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/<int:id>/undo/', methods=('POST',))
+def undo(id):
+    conn = get_db_connection()
+    conn.execute('UPDATE items SET done = 0 WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/<int:id>/edit/', methods=('GET', 'POST'))
+def edit(id):
+    conn = get_db_connection()
+    
+    # Use the id argument passed to the route to fetch the id of the to-do item you want
+    # And the list it belongs to, value of done etc.
+    todo = conn.execute('SELECT i.id, i.list_id, i.done, i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id WHERE i.id = ?', (id,)).fetchone()
+    # get all todo lists from db
+    lists = conn.execute('SELECT title FROM lists;').fetchall()
+
+
+    if request.method == 'POST':
+        content = request.form['content']
+        list_title = request.form['list']
+
+        if not content:
+            flash('Content is required')
+            return redirect(url_for('edit', id=id))
+
+        list_id = conn.execute('SELECT id FROM lists WHERE title = (?);', (list_title,)).fetchone()['id']
+
+        # update content to what was submitted
+        conn.execute('UPDATE items SET content = ?, list_id = ? WHERE id = ?', (content, list_id, id))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('index'))
+
+    return render_template('edit.html', todo=todo, lists=lists)
+
+@app.route('/<int:id>/delete/', methods=('POST',))
+def delete(id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM items WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
