@@ -1,3 +1,7 @@
+from ast import keyword
+from distutils.util import execute
+from fileinput import close
+from importlib.resources import contents
 from itertools import groupby
 import sqlite3
 from flask import Flask, render_template, redirect, request, flash, url_for
@@ -84,7 +88,7 @@ def edit(id):
     
     # Use the id argument passed to the route to fetch the id of the to-do item you want
     # And the list it belongs to, value of done etc.
-    todo = conn.execute('SELECT i.id, i.list_id, i.done, i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id WHERE i.id = ?', (id,)).fetchone()
+    todo = conn.execute('SELECT i.id, i.list_id, i.done, i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id WHERE l.id = ?', (id,)).fetchone()
     # get all todo lists from db
     lists = conn.execute('SELECT title FROM lists;').fetchall()
 
@@ -107,6 +111,23 @@ def edit(id):
 
     return render_template('edit.html', todo=todo, lists=lists)
 
+# @app.route('/<int:id>/show/', methods=('GET', 'POST'))
+# def show(id):
+#     conn = get_db_connection()
+#     todos = conn.execute('SELECT i.id, i.list_id, i.done, i.content, l.title, l.id FROM items i JOIN lists l ON i.list_id = l.id WHERE i.id = ?', (id,)).fetchone()    
+#     lists = {}
+#     print(todos)
+
+#     key_func = lambda t:t['title']
+
+#     for k, g in groupby(todos, key=key_func):
+#         lists[k] = list(g)
+
+
+#     conn.close()
+#     return render_template('show.html', lists = lists)
+    
+
 @app.route('/<int:id>/delete/', methods=('POST',))
 def delete(id):
     conn = get_db_connection()
@@ -114,4 +135,39 @@ def delete(id):
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
+
+@app.route('/search/', methods=('GET', 'POST'))
+def search(keyword="*"):
+    if request.method == 'POST':
+        keyword = request.form['keyword']
+        conn = get_db_connection()
+        contents = conn.execute('SELECT * FROM items WHERE content = ?', (keyword,)).fetchall()
+        if keyword != "*":
+            todos = conn.execute('SELECT i.id, i.done, i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id WHERE i.content=? ORDER BY l.title;', (keyword, )).fetchall()
+        else:
+            todos = conn.execute('SELECT i.id, i.done, i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id ORDER BY l.title;').fetchall()
+        lists = {}
+
+        key_func = lambda t:t['title']
+
+        for k, g in groupby(todos, key=key_func):
+            lists[k] = list(g)
+        conn.commit()
+        conn.close()
+        return render_template('search.html', lists = lists)
+    conn = get_db_connection()
+    if keyword != "*":
+        todos = conn.execute('SELECT i.id, i.done, i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id WHERE i.content=? ORDER BY l.title;', (keyword, )).fetchall()
+    else:
+        todos = conn.execute('SELECT i.id, i.done, i.content, l.title FROM items i JOIN lists l ON i.list_id = l.id ORDER BY l.title;').fetchall()
+    lists = {}
+
+    key_func = lambda t:t['title']
+
+    for k, g in groupby(todos, key=key_func):
+        lists[k] = list(g)
+    # contents = conn.execute('SELECT * FROM items').fetchall()
+    conn.commit()
+    conn.close()
+    return render_template('search.html', lists=lists)
 

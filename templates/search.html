@@ -1,8 +1,16 @@
-{% extends 'base.html' %}
+{% extends 'base.html' %} {% block content %}
 
-{% block content %}
-    <h1>{% block title %} Welcome to FlaskTodo {% endblock %}</h1>
-    {% for list, items in lists.items() %}
+<h1>{% block title %} Search {% endblock %}</h1>
+
+<form action="" method="post">
+  <div class="form-group">
+      <input name="keyword" type="text" value="{{request.form['keyword']}}"></input>
+      <input type="submit">
+  </div>
+</form>
+
+
+{% for list, items in lists.items() %}
         <div class="card" style="width: 18rem; margin-bottom: 50px;">
             <div class="card-header">
                 <h3>{{ list }}</h3>
@@ -34,6 +42,7 @@
                         <div class="col-12 col-md-3">
                             <a href="{{url_for('edit', id=item['id'])}}" class="btn btn-warning btn-sm">Edit</a>
                         </div>
+
                         <div class="col-12 col-md-3">
                             <form action="{{url_for('delete', id=item['id'])}}" method="POST">
                                 <input type="submit" value="Delete" class="btn btn-danger btn-sm">
@@ -46,5 +55,8 @@
                 {% endfor %}
             </ul>
         </div>
-    {% endfor %}
+{% endfor %}
+
+
+
 {% endblock %}
